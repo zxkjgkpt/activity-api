@@ -1,0 +1,14 @@
+server:
+  port: ${peer1.server.port}
+
+spring:
+  profiles: peer1
+  datasource:
+    url: "jdbc:mysql://${spring.mysql.host}:${spring.mysql.port}/${spring.mysql.database}?characterEncoding=utf8&useSSL=true&serverTimezone=GMT%2B8"
+    username: ${spring.mysql.username}
+    password: ${spring.mysql.password}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${peer1.eureka.client.serviceUrl.defaultZone}
