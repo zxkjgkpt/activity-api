@@ -1,48 +1,56 @@
-package com.yfny.activityapi.utils;
+package com.yfny.activityapi.service;
 
+import com.yfny.activityapi.utils.BpmsActivityTypeEnum;
+import com.yfny.activityapi.utils.UtilMisc;
 import org.activiti.bpmn.model.BpmnModel;
-import org.activiti.bpmn.model.FlowElement;
 import org.activiti.bpmn.model.FlowNode;
 import org.activiti.bpmn.model.SequenceFlow;
-import org.activiti.engine.HistoryService;
-import org.activiti.engine.RepositoryService;
-import org.activiti.engine.RuntimeService;
+import org.activiti.engine.*;
 import org.activiti.engine.history.HistoricActivityInstance;
 import org.activiti.engine.history.HistoricProcessInstance;
+import org.activiti.engine.runtime.ProcessInstance;
+import org.activiti.engine.task.Task;
 import org.activiti.image.ProcessDiagramGenerator;
 import org.activiti.spring.ProcessEngineFactoryBean;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
+ * 生成流程图Service
  * <p>
- * Created  by  jinboYu  on  2019/3/13
+ * Created  by  jinboYu  on  2019/3/15
  */
-@Component
-public class FlowUtils {
+@Service
+public class FlowService {
+
     @Autowired
     private HistoryService historyService;
     @Autowired
     private RepositoryService repositoryService;
     @Autowired
     private ProcessEngineFactoryBean processEngine;
+    @Autowired
+    private RuntimeService runtimeService;
+    @Autowired
+    private TaskService taskService;
     /**
      * 获取历史节点流程图
-     * @param id
+     * 生成的流程图会高亮历史节点到当前的节点
+     * @param taskId 任务ID
      * @return
      */
-    public InputStream getResourceDiagramInputStream(String id) {
+    public InputStream getResourceDiagramInputStream(String taskId) {
         try {
+            Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
+
             // 获取历史流程实例
-            HistoricProcessInstance historicProcessInstance = historyService.createHistoricProcessInstanceQuery().processInstanceId(id).singleResult();
+            HistoricProcessInstance historicProcessInstance = historyService.createHistoricProcessInstanceQuery().processInstanceId(task.getProcessInstanceId()).singleResult();
             // 获取流程中已经执行的节点，按照执行先后顺序排序
-            List<HistoricActivityInstance> historicActivityInstanceList = historyService.createHistoricActivityInstanceQuery().processInstanceId(id).orderByHistoricActivityInstanceId().asc().list();
+            List<HistoricActivityInstance> historicActivityInstanceList = historyService.createHistoricActivityInstanceQuery().processInstanceId(task.getParentTaskId()).orderByHistoricActivityInstanceId().asc().list();
             // 构造已执行的节点ID集合
             List<String> executedActivityIdList = new ArrayList<String>();
             for (HistoricActivityInstance activityInstance : historicActivityInstanceList) {
@@ -112,36 +120,75 @@ public class FlowUtils {
                 for (SequenceFlow sequenceFlow : sequenceFlowList) {
                     targetFlowNode = (FlowNode) bpmnModel.getMainProcess().getFlowElement(sequenceFlow.getTargetRef(), true);
                     if (historicFlowNodeList.contains(targetFlowNode)){
-                       if (historicActivityInstances.get(i + 1).getActivityId().equals(targetFlowNode.getId())){
-                           flowIdList.add(sequenceFlow.getId());
-                       }
+                        if (historicActivityInstances.get(i + 1).getActivityId().equals(targetFlowNode.getId())){
+                            flowIdList.add(sequenceFlow.getId());
+                        }
 
                     }
                 }
 
             }else {
-                    List<Map<String, String>> tempMapList = new LinkedList<Map<String,String>>();
-                    // 遍历历史活动节点，找到匹配Flow目标节点的
-                    for (SequenceFlow sequenceFlow : sequenceFlowList) {
-                        for (HistoricActivityInstance historicActivityInstance : historicActivityInstances) {
-                            if (historicActivityInstance.getActivityId().equals(sequenceFlow.getTargetRef())) {
-                                tempMapList.add(UtilMisc.toMap("flowId", sequenceFlow.getId(), "activityStartTime", String.valueOf(historicActivityInstance.getStartTime().getTime())));
-                            }
+                List<Map<String, String>> tempMapList = new LinkedList<Map<String,String>>();
+                // 遍历历史活动节点，找到匹配Flow目标节点的
+                for (SequenceFlow sequenceFlow : sequenceFlowList) {
+                    for (HistoricActivityInstance historicActivityInstance : historicActivityInstances) {
+                        if (historicActivityInstance.getActivityId().equals(sequenceFlow.getTargetRef())) {
+                            tempMapList.add(UtilMisc.toMap("flowId", sequenceFlow.getId(), "activityStartTime", String.valueOf(historicActivityInstance.getStartTime().getTime())));
                         }
                     }
-                    // 遍历匹配的集合，取得开始时间最早的一个
-                    long earliestStamp = 0L;
-                    String flowId = null;
-                    for (Map<String, String> map : tempMapList) {
-                        long activityStartTime = Long.valueOf(map.get("activityStartTime"));
-                        if (earliestStamp == 0 ||earliestStamp>=activityStartTime) {
-                            earliestStamp = activityStartTime;
-                            flowId = map.get("flowId");
-                        }
-                    }
-                    flowIdList.add(flowId);
                 }
+                // 遍历匹配的集合，取得开始时间最早的一个
+                long earliestStamp = 0L;
+                String flowId = null;
+                for (Map<String, String> map : tempMapList) {
+                    long activityStartTime = Long.valueOf(map.get("activityStartTime"));
+                    if (earliestStamp == 0 ||earliestStamp>=activityStartTime) {
+                        earliestStamp = activityStartTime;
+                        flowId = map.get("flowId");
+                    }
+                }
+                flowIdList.add(flowId);
             }
+        }
         return flowIdList;
+    }
+
+
+    /**
+     * 根据当前流程实例ID获取流程图片流文件
+     * 生成的流程图图片只高亮当前任务的节点
+     * @param taskId 任务ID
+     * @return
+     */
+    public InputStream getDiagram(String taskId) {
+        Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
+        //获得流程实例
+        ProcessInstance processInstance = runtimeService.createProcessInstanceQuery()
+                .processInstanceId(task.getProcessInstanceId()).singleResult();
+        String processDefinitionId = StringUtils.EMPTY;
+        if (processInstance == null) {
+            //查询已经结束的流程实例
+            HistoricProcessInstance processInstanceHistory =
+                    historyService.createHistoricProcessInstanceQuery()
+                            .processInstanceId(task.getProcessInstanceId()).singleResult();
+            if (processInstanceHistory == null)
+                return null;
+            else
+                processDefinitionId = processInstanceHistory.getProcessDefinitionId();
+        } else {
+            processDefinitionId = processInstance.getProcessDefinitionId();
+        }
+
+        //获取BPMN模型对象
+        BpmnModel model = repositoryService.getBpmnModel(processDefinitionId);
+        //获取流程实例当前的节点，需要高亮显示
+        List<String> currentActs = Collections.EMPTY_LIST;
+        if (processInstance != null){
+            currentActs = runtimeService.getActiveActivityIds(processInstance.getId());
+        }
+        return ProcessEngines.getDefaultProcessEngine().getProcessEngineConfiguration()
+                .getProcessDiagramGenerator()
+                .generateDiagram(model, "png", currentActs, new ArrayList<String>(),
+                        "宋体", "微软雅黑", "黑体", null, 1.0);
     }
 }

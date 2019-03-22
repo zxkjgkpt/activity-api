@@ -1,9 +1,10 @@
 package com.yfny.activityapi.controller;
 
-import com.yfny.activityapi.service.ActivitiService;
+import com.yfny.activityapi.service.CommonService;
+import com.yfny.activityapi.service.FlowService;
 import com.yfny.activityapi.utils.ActivitiUtils;
-import com.yfny.activityapi.utils.FlowUtils;
-import org.activiti.engine.*;
+import org.activiti.engine.HistoryService;
+import org.activiti.engine.TaskService;
 import org.activiti.engine.history.HistoricProcessInstance;
 import org.activiti.engine.impl.util.json.JSONArray;
 import org.activiti.engine.task.Task;
@@ -21,112 +22,28 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * Activity通用接口
  * <p>
  * Created  by  jinboYu  on  2019/3/5
  */
 @RestController
 @RequestMapping(value = "/activitiApi")
-public class ActivitiController {
+public class CommonController {
 
     @Autowired
     private TaskService taskService;
 
     @Autowired
-    private RuntimeService runtimeService;
-
-    @Autowired
-    private RepositoryService repositoryService;
-
-    @Autowired
-    private IdentityService identityService;
-
-    @Autowired
     private HistoryService historyService;
 
     @Autowired
-    private ActivitiService activitiService;
+    private CommonService commonService;
 
     @Autowired
     private ActivitiUtils activitiUtils;
 
     @Autowired
-    private FlowUtils flowUtils;
-
-    /**
-     * 提交需求单
-     * @param createName    创建人
-     * @param zzid  组织ID
-     * @param demandReviews 需求综述
-     * @return
-     */
-//    @PostMapping(value = "/submitDemand/{userId}/{createName}/{zzid}/{demandReviews}")
-//    public String  submitDemand(@PathVariable String userId,@PathVariable String createName, @PathVariable String zzid, @PathVariable String demandReviews){
-//        try {
-//            String processInstanceId =  ActivitiUtils.getProcessInstance(userId).getId();
-//            //查询第一个任务
-//            Task task = taskService.createTaskQuery().processInstanceId(processInstanceId).singleResult();
-//            //设置流程变量
-//            Map<String,Object> variables = new HashMap<>();
-//            variables.put("createName",createName);
-//            variables.put("zzid",zzid);
-//            variables.put("demandReviews",demandReviews);
-//            taskService.setVariables(task.getId(),variables);
-//            //完成任务
-//            taskService.complete(task.getId());
-//            return taskService.createTaskQuery().processInstanceId(processInstanceId).singleResult().getId();
-//        } catch (Exception e) {
-//            return null;
-//        }
-//    }
-
-    /**
-     * 审核需求单
-     * @param taskId    流程任务ID
-     * @param auditOpinion  审核意见
-     * @param shrId 审核人ID
-     * @param pass  是否通过
-     * @return 1成功，0失败
-     */
-    @PostMapping(value = "/auditDemand/{taskId}/{shrId}/{auditOpinion}/{pass}")
-    public String auditDemand(@PathVariable String taskId,@PathVariable String shrId,@PathVariable String auditOpinion,@PathVariable boolean pass){
-        try {
-            Task task = this.taskService.createTaskQuery().taskId(taskId).singleResult();
-            //根据流程任务ID获取流程任务
-            Map<String,Object> variables = new HashMap<>();
-            variables.put("auditOpinion",auditOpinion);
-            variables.put("shrId",shrId);
-            variables.put("pass",pass);
-            taskService.setVariables(taskId,variables);
-            //完成任务
-            taskService.complete(taskId);
-            return taskService.createTaskQuery().processInstanceId(task.getProcessInstanceId()).singleResult().getId();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    /**
-     * 修改需求单
-     * @param taskId    流程任务ID
-     * @param demandReviews 需求综述
-     * @param zzid  组织ID
-     * @return
-     */
-    @GetMapping(value = "/modifierDemand/{taskId}/{demandReviews}/{zzid}")
-    public int modifierDemand(@PathVariable String taskId,@PathVariable String demandReviews,@PathVariable String zzid){
-        try {
-            //根据流程任务ID获取流程任务
-            Map<String,Object> variables = new HashMap<>();
-            variables.put("demandReviews",demandReviews);
-            variables.put("zzid",zzid);
-            taskService.setVariables(taskId,variables);
-            //完成任务
-            taskService.complete(taskId);
-            return 1;
-        } catch (Exception e) {
-            return 0;
-        }
-    }
+    private FlowService flowService;
 
     /**
      * 根据分组ID获取任务列表，带分页
@@ -138,14 +55,15 @@ public class ActivitiController {
     @GetMapping(value = "/getDemandByGroupId/{groupId}/{pageNum}/{pageSize}")
     public String getDemandByGroupId(@PathVariable String groupId,@PathVariable int pageNum,@PathVariable int pageSize){
         pageNum = (pageNum-1)*pageSize;
-        List<Map<String,Object>> resultList = new ArrayList<>();
+
+        List<Map<String,Object>> resultList = new ArrayList<Map<String, Object>>();
         //根据分组ID获取任务列表，不包含流程变量
 //        List<Task> tasks = taskService.createTaskQuery().taskCandidateGroup(groupId).listPage(pageNum,pageSize);
         //根据分组ID获取任务列表，包含流程变量
         List<Task> tasks = taskService.createTaskQuery().taskCandidateGroup(groupId).includeProcessVariables().listPage(pageNum,pageSize);
         if (tasks!=null && tasks.size()>0){
             for (Task task : tasks) {
-                Map<String,Object> resultMap = new HashMap<>();
+                Map<String,Object> resultMap = new HashMap<String, Object>();
                 resultMap.put("任务名称",task.getName());
                 resultMap.put("任务ID",task.getId());
                 resultMap.put("组织ID",task.getProcessVariables().get("zzid"));
@@ -185,7 +103,7 @@ public class ActivitiController {
 
     @GetMapping(value = "/getTaskListByUserId/{userId}/{pageNum}/{pageSize}")
     public List<Task> getTaskListByUserId(@PathVariable String userId,@PathVariable int pageNum,@PathVariable int pageSize){
-        List<Task> taskList = new ArrayList<>();
+        List<Task> taskList = new ArrayList<Task>();
         pageNum = (pageNum-1)*pageSize;
         List<HistoricProcessInstance> historicProcessInstanceList = historyService.createHistoricProcessInstanceQuery().includeProcessVariables().startedBy(userId).listPage(pageNum,pageSize);
         if (historicProcessInstanceList!=null && historicProcessInstanceList.size()>0){
@@ -209,20 +127,7 @@ public class ActivitiController {
      */
     @PostMapping(value = "/createTask/{userId}/{key}")
     public String createTask(@PathVariable String userId,@PathVariable String key,@RequestBody Map<String,Object> variables){
-        try {
-            //获取当前流程实例ID
-            String processInstanceId =  activitiUtils.getProcessInstance(userId,key).getId();
-            //查询第一个任务
-            Task task = taskService.createTaskQuery().processInstanceId(processInstanceId).singleResult();
-            //设置流程任务变量
-            taskService.setVariables(task.getId(),variables);
-            //完成任务
-            taskService.complete(task.getId());
-            //返回下一个任务的ID
-            return taskService.createTaskQuery().processInstanceId(processInstanceId).singleResult().getId();
-        } catch (Exception e) {
-            return null;
-        }
+        return commonService.createTask(userId,key,variables);
     }
 
     /**
@@ -233,18 +138,7 @@ public class ActivitiController {
      */
     @PostMapping(value = "/fulfilTask/{taskId}")
     public String fulfilTask(@PathVariable String taskId,@RequestBody Map<String,Object> variables){
-        try {
-            //根据任务ID获取当前任务实例
-            Task task = this.taskService.createTaskQuery().taskId(taskId).singleResult();
-            //设置流程任务变量
-            taskService.setVariables(taskId,variables);
-            //完成任务
-            taskService.complete(taskId);
-            //返回下一个任务的ID
-            return taskService.createTaskQuery().processInstanceId(task.getProcessInstanceId()).singleResult().getId();
-        } catch (Exception e) {
-            return null;
-        }
+        return commonService.fulfilTask(taskId,variables);
     }
 
     /**
@@ -270,17 +164,17 @@ public class ActivitiController {
     }
 
     /**
-     * 根据流程实例ID获取流程图
-     * @param processInstanceId    流程实例ID
+     * 根据流程实例ID获取流程图，高亮当前任务节点及历史节点
+     * @param taskId    任务ID
      * @param response
      */
-    @GetMapping(value = "/getImage/{processInstanceId}")
-    public void getImage(@PathVariable String processInstanceId,
+    @GetMapping(value = "/getImage/{taskId}")
+    public void getImage(@PathVariable String taskId,
                       HttpServletResponse response) {
         try {
             //根据当前流程实例ID获取图片输入流
 //            InputStream is = activitiService.getDiagram(task.getProcessInstanceId());
-            InputStream is = flowUtils.getResourceDiagramInputStream(processInstanceId);
+            InputStream is = flowService.getResourceDiagramInputStream(taskId);
             if (is == null)
                 return;
             response.setContentType("image/png");
@@ -294,4 +188,42 @@ public class ActivitiController {
         }
     }
 
+    /**
+     * 根据流程实例ID生成流程图，只高亮当前任务节点
+     * @param taskId    任务ID
+     * @param response
+     */
+    @GetMapping(value = "/getDiagram/{taskId}")
+    public void getDiagram(@PathVariable String taskId,
+                        HttpServletResponse response){
+        try {
+            //根据当前流程实例ID获取图片输入流
+            InputStream is = flowService.getDiagram(taskId);
+            if (is == null)
+                return;
+            response.setContentType("image/png");
+            BufferedImage image = ImageIO.read(is);
+            OutputStream out = response.getOutputStream();
+            ImageIO.write(image, "png", out);
+            is.close();
+            out.close();
+        } catch (Exception ex) {
+            return;
+        }
+    }
+
+    /**
+     * 撤销流程
+     * @param taskId    流程任务ID
+     * @return
+     */
+    @PostMapping(value = "/revocationTask/{taskId}")
+    public String revocationTask(@PathVariable String taskId){
+        int i = commonService.revocationTask(taskId);
+        if (i==1){
+            return "撤销成功";
+        }else {
+            return "撤销失败";
+        }
+    }
 }
