@@ -20,6 +20,8 @@ server:
   servlet:
     session:
       timeout: 10
+#   设置项目根路径
+    context-path: "/activityApi"
   port: 8768
 #  微服务配置
 eureka:
