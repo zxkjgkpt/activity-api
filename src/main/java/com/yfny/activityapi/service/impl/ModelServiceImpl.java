@@ -69,6 +69,8 @@ public class ModelServiceImpl implements ModelService {
         modelData.setMetaInfo(modelObjectNode.toString());
         modelData.setName(modelName);
         modelData.setKey(modelKey);
+        //新创建的流程模型版本号为0,只有保存了版本号才加1
+        modelData.setVersion(0);
 
         //保存模型
         repositoryService.saveModel(modelData);
@@ -115,6 +117,7 @@ public class ModelServiceImpl implements ModelService {
 
         modelJson.put(MODEL_NAME, name);
         modelJson.put(MODEL_DESCRIPTION, description);
+        model.setVersion(model.getVersion()+1);
         model.setMetaInfo(modelJson.toString());
         model.setName(name);
 
