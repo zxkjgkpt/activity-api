@@ -1,5 +1,6 @@
 package com.yfny.activityapi.service.impl;
 
+import com.codingapi.txlcn.tc.annotation.LcnTransaction;
 import com.yfny.activityapi.service.FlowDiagramService;
 import org.activiti.bpmn.model.BpmnModel;
 import org.activiti.engine.*;
@@ -12,6 +13,8 @@ import org.activiti.spring.ProcessEngineFactoryBean;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -44,6 +47,8 @@ public class FlowDiagramServiceImpl implements FlowDiagramService {
      * @param taskId 任务ID
      * @return
      */
+    @Transactional(propagation= Propagation.REQUIRED,rollbackFor=Exception.class)
+    @LcnTransaction
     public InputStream getResourceDiagramInputStream(String taskId) {
         Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
 
@@ -159,6 +164,8 @@ public class FlowDiagramServiceImpl implements FlowDiagramService {
      * @param taskId 任务ID
      * @return
      */
+    @Transactional(propagation= Propagation.REQUIRED,rollbackFor=Exception.class)
+    @LcnTransaction
     public InputStream getDiagram(String taskId) {
         Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
         //获得流程实例
@@ -188,6 +195,6 @@ public class FlowDiagramServiceImpl implements FlowDiagramService {
         return ProcessEngines.getDefaultProcessEngine().getProcessEngineConfiguration()
                 .getProcessDiagramGenerator()
                 .generateDiagram(model, "png", currentActs, new ArrayList<String>(),
-                        "宋体", "微软雅黑", "黑体", null, 1.0);
+                        "微软雅黑", "微软雅黑", "微软雅黑", null, 2.0);
     }
 }

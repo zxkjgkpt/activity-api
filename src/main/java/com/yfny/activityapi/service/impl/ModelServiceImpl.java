@@ -1,5 +1,6 @@
 package com.yfny.activityapi.service.impl;
 
+import com.codingapi.txlcn.tc.annotation.LcnTransaction;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.yfny.activityapi.service.ModelService;
@@ -18,6 +19,8 @@ import org.apache.batik.transcoder.image.PNGTranscoder;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -47,6 +50,8 @@ public class ModelServiceImpl implements ModelService {
     private RuntimeService runtimeService;
 
     @Override
+    @Transactional(propagation= Propagation.REQUIRED,rollbackFor=Exception.class)
+    @LcnTransaction
     public void createModel(HttpServletRequest request, HttpServletResponse response) throws Exception{
 
         String modelName = "modelName";
@@ -87,6 +92,8 @@ public class ModelServiceImpl implements ModelService {
      * @throws Exception
      */
     @Override
+    @Transactional(propagation= Propagation.REQUIRED,rollbackFor=Exception.class)
+    @LcnTransaction
     public List<Model> selectModel(int pageNum,int pageSize) throws Exception {
         pageNum = (pageNum - 1) * pageSize;
         String selectModelSql = "SELECT * FROM act_re_model WHERE EDITOR_SOURCE_EXTRA_VALUE_ID_ !='' or EDITOR_SOURCE_EXTRA_VALUE_ID_ !=NULL";
@@ -109,6 +116,8 @@ public class ModelServiceImpl implements ModelService {
      * @return
      */
     @Override
+    @Transactional(propagation= Propagation.REQUIRED,rollbackFor=Exception.class)
+    @LcnTransaction
     public int saveModel(String modelId, String name, String description, String json_xml, String svg_xml) throws Exception {
         // 获取流程模型
         Model model = repositoryService.getModel(modelId);
@@ -149,6 +158,8 @@ public class ModelServiceImpl implements ModelService {
      * @throws Exception
      */
     @Override
+    @Transactional(propagation= Propagation.REQUIRED,rollbackFor=Exception.class)
+    @LcnTransaction
     public int deployModel(String modelId) throws Exception {
         //数据库保存的是模型的元数据，不是XMl格式--需要将元数据转换为XML格式，再进行部署
         Model model = repositoryService.getModel(modelId);
@@ -179,6 +190,8 @@ public class ModelServiceImpl implements ModelService {
      * @throws Exception
      */
     @Override
+    @Transactional(propagation= Propagation.REQUIRED,rollbackFor=Exception.class)
+    @LcnTransaction
     public ObjectNode getEditorJson(String modelId) throws Exception {
         ObjectNode modelNode = null;
         Model model = repositoryService.getModel(modelId);

@@ -15,7 +15,6 @@ import java.util.List;
  * <p>
  * Created  by  jinboYu  on  2019/3/28
  */
-@Transactional(propagation= Propagation.REQUIRED,rollbackFor=Exception.class)
 public interface ModelService {
 
     /**

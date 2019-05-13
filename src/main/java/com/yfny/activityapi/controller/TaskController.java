@@ -118,10 +118,10 @@ public class TaskController {
      * @param variables 流程变量
      * @return 下一个任务的ID
      */
-    @PostMapping(value = "/create/{userId}/{key}")
-    public String createTask(@PathVariable String userId, @PathVariable String key, @RequestBody Map<String, Object> variables) throws Exception {
-        String taskId = flowTaskService.createTask(userId, key, variables);
-        return taskId;
+    @PostMapping(value = "/create")
+    public Map<String,String> createTask(@RequestParam String userId, @RequestParam String key, @RequestBody Map<String, Object> variables) throws Exception {
+        Map<String,String> resultMap = flowTaskService.createTask(userId, key, variables);
+        return resultMap;
     }
 
     /**
@@ -132,8 +132,9 @@ public class TaskController {
      * @return 返回下一个任务的ID
      */
     @PostMapping(value = "/fulfil/{taskId}")
-    public String fulfilTask(@PathVariable String taskId, @RequestBody Map<String, Object> variables) throws Exception {
-        return flowTaskService.fulfilTask(taskId, variables);
+    public Map<String,String> fulfilTask(@PathVariable String taskId, @RequestBody Map<String, Object> variables) throws Exception {
+        Map<String,String> resultMap = flowTaskService.fulfilTask(taskId, variables);
+        return resultMap;
     }
 
     /**
@@ -163,13 +164,8 @@ public class TaskController {
      * @return
      */
     @PostMapping(value = "/revocationTask/{taskId}")
-    public String revocationTask(@PathVariable String taskId) throws Exception {
-        int i = flowTaskService.revocationTask(taskId);
-        if (i == 1) {
-            return "撤销成功";
-        } else {
-            return "撤销失败";
-        }
+    public int revocationTask(@PathVariable String taskId) throws Exception {
+        return flowTaskService.revocationTask(taskId);
     }
 
     /**
@@ -185,5 +181,48 @@ public class TaskController {
             return "创建成功";
         }
         return "创建失败";
+    }
+
+    /**
+     * 创建流程并完成第一个任务,不设置流程变量
+     *
+     * @param userId    流程发起人ID
+     * @param key       流程ID
+     * @return 下一个任务的ID
+     */
+    @PostMapping(value = "/createTask/{userId}/{key}")
+    public String createTask(@PathVariable String userId, @PathVariable String key) throws Exception {
+        String taskId = flowTaskService.createTask(userId, key);
+        return taskId;
+    }
+
+    /**
+     * 根据流程实例ID查询流程历史记录
+     * @param processInstanceId 流程实例ID
+     */
+    @GetMapping(value = "/getHistories")
+    public List<Map<String,Object>> getHistories(@RequestParam String processInstanceId) throws Exception {
+        List<Map<String, Object>> historiesList = flowTaskService.getHistories(processInstanceId);
+        if (historiesList!=null && historiesList.size()>0){
+            return historiesList;
+        }else {
+            return null;
+        }
+    }
+
+    /**
+     * 根据任务ID查询当前任务历史记录
+     * @param taskId    任务ID
+     * @return
+     * @throws Exception
+     */
+    @GetMapping(value = "/getHistoriesByTaskId")
+    public List<Map<String, Object>> getHistoriesByTaskId(@RequestParam String taskId) throws Exception {
+        List<Map<String, Object>> histories = flowTaskService.getHistoriesByTaskId(taskId);
+        if (histories!=null && histories.size()>0){
+            return histories;
+        }else {
+            return null;
+        }
     }
 }
